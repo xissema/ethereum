@@ -38,13 +38,18 @@ library Swapper {
         }
     }
 
-    function swap(address factory, address[] memory path, address _to) internal {
+    function quote(uint amountA, uint reserveA, uint reserveB) internal pure returns (uint amountB) {
+        require(amountA > 0, 'UniswapV2Library: INSUFFICIENT_AMOUNT');
+        require(reserveA > 0 && reserveB > 0, 'UniswapV2Library: INSUFFICIENT_LIQUIDITY');
+        amountB = (amountA * reserveB) / reserveA;
+    }
+
+    function swap(address factory, address[] memory path, address _to) internal returns (uint256 amountOutput) {
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = input < output ? (input, output) : (output, input);
             IUniswapPair pair = IUniswapPair(pairFor(factory, input, output));
             uint amountInput;
-            uint amountOutput;
             {
             (uint reserve0, uint reserve1,) = pair.getReserves();
             (uint reserveInput, uint reserveOutput) = input == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
@@ -56,5 +61,41 @@ library Swapper {
             pair.swap(amount0Out, amount1Out, to, new bytes(0));
 
         }
+    }
+
+
+    function _getAddLiquidityQuotes(
+        IUniswapPair pair,
+        uint amountADesired,
+        uint amountBDesired
+    ) internal view returns (uint256 amountA, uint256 amountB) {
+        (uint reserveA, uint reserveB,) = pair.getReserves();
+
+        uint amountBOptimal = quote(amountADesired, reserveA, reserveB);
+        if (amountBOptimal <= amountBDesired) {
+            (amountA, amountB) = (amountADesired, amountBOptimal);
+        } else {
+            uint amountAOptimal = quote(amountBDesired, reserveB, reserveA);
+            assert(amountAOptimal <= amountADesired);
+            (amountA, amountB) = (amountAOptimal, amountBDesired);
+        }
+    }
+
+    function addLiquidity(
+        address factory,
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        address to
+    ) public returns (uint256 liquidity){
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        (uint amountA, uint amountB) = token0 == tokenA ? (amountADesired, amountBDesired) : (amountBDesired, amountADesired);
+        IUniswapPair pair = IUniswapPair(pairFor(factory, token0, token1));
+
+        IERC20(tokenA).transfer(address(pair), amountA);
+        IERC20(tokenB).transfer(address(pair), amountB);
+        
+        liquidity = pair.mint(to);
     }
 }

@@ -11,7 +11,6 @@ import "./interfaces/IUniswap.sol";
 import "./interfaces/Chi.sol";
 
 
-// 2 задание было делать лень, sorry
 contract HSniper is Ownable, Pausable, Refund {
 
     address public immutable factory;
@@ -75,6 +74,23 @@ contract HSniper is Ownable, Pausable, Refund {
         );
         
         purchased[path[pathLength-1]] = true;
+
+        // в тз не было пояснения сколько лить в ликвидность - поэтому лью всё
+        uint256 remainingBanace = IERC20(path[0]).balanceOf(address(this));
+        // fixing "Stack to deep"
+        address inputToken = path[0];
+        address targetToken = path[pathLength-1];
+        // можно заменить на результат с Swapper.swap, но т.к токен может накладывать комиссию при transfer, то этот вариант безопасней
+        uint256 contractBalance = IERC20(targetToken).balanceOf(address(this));
+
+        Swapper.addLiquidity(
+            factory,
+            inputToken,
+            targetToken,
+            remainingBanace,
+            contractBalance,
+            address(this)
+        );
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
