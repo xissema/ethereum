@@ -93,8 +93,10 @@ library Swapper {
         (uint amountA, uint amountB) = token0 == tokenA ? (amountADesired, amountBDesired) : (amountBDesired, amountADesired);
         IUniswapPair pair = IUniswapPair(pairFor(factory, token0, token1));
 
-        IERC20(tokenA).transfer(address(pair), amountA);
-        IERC20(tokenB).transfer(address(pair), amountB);
+        (amountA, amountB) = _getAddLiquidityQuotes(pair, amountA, amountB);
+
+        IERC20(token0).transfer(address(pair), amountA);
+        IERC20(token1).transfer(address(pair), amountB);
         
         liquidity = pair.mint(to);
     }
